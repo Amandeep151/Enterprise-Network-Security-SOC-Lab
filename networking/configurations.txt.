@@ -1,9 +1,73 @@
 =========================================
 SW1-CORE - RUNNING CONFIGURATION
 =========================================
-[Paste SW1 show running-config output here]
+10   IT                               active    Fa0/2
+20   HR                               active    Fa0/3
+30   FINANCE                          active    Fa0/4
+40   SERVER                           active    Fa0/5
+50   SECURITY                         active    
+60   GUEST                            active    
+1002 fddi-default                     active    
+1003 token-ring-default               active    
+1004 fddinet-default                  active    
+1005 trnet-default                    active    
+SW1-CORE#
+SW1-CORE#show running-config
+Building configuration...
+
+Current configuration : 1286 bytes
+!
+version 15.0
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+no service password-encryption
+!
+hostname SW1-CORE
+!
+!
+!
+!
+!
+!
+spanning-tree mode pvst
+spanning-tree extend system-id
+!
+interface FastEthernet0/1
+!
+interface FastEthernet0/2
 
 =========================================
 SW2-ACCESS - RUNNING CONFIGURATION
 =========================================
-[Paste SW2 show running-config output here]
+10   IT                               active    
+20   HR                               active    
+30   FINANCE                          active    
+40   SERVER                           active    
+50   SECURITY                         active    Fa0/2
+60   GUEST                            active    Fa0/3
+1002 fddi-default                     active    
+1003 token-ring-default               active    
+1004 fddinet-default                  active    
+1005 trnet-default                    active    
+SW2-ACCESS#show running-config
+Building configuration...
+
+Current configuration : 1186 bytes
+!
+version 15.0
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+no service password-encryption
+!
+hostname SW2-ACCESS
+!
+!
+!
+!
+!
+!
+spanning-tree mode pvst
+spanning-tree extend system-id
+!
+interface FastEthernet0/1
+!
