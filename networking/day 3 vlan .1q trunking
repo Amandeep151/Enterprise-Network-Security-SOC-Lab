@@ -1,0 +1,28 @@
+Day 3: Setting Up Switch-to-Switch Trunking & Fixing Interface Drops
+
+
+Day 2 Context: Created VLANs 10 through 60 and configured user access ports across both switches.
+
+---
+
+What I Built
+1. Configured Trunking on Both Switches:
+   Selected the inter-switch link (`GigabitEthernet0/1`) on SW1 and SW2 and configured it to carry traffic across all six VLANs:
+   ```hs
+   enable
+   configure terminal
+   interface GigabitEthernet0/1
+    switchport mode trunk
+    switchport trunk allowed vlan 10,20,30,40,50,60
+   end
+
+2.	Verified Layer 2 Connectivity: Ran show interfaces trunk to make sure the link was actively trunking using 802.1q. Checked show mac address-table to confirm that MAC addresses from devices on SW2 were showing up on SW1 across the trunk.
+3.	Break/Fix Scenario (Simulating a Config Error):
+o	The Break: Accidentally removed VLANs 50 and 60 on SW2 using switchport trunk allowed vlan 10,20,30,40.
+o	The Impact: Devices on those pruned VLANs instantly lost the ability to communicate across the switch link.
+o	The Fix: Restored the allowed list with switchport trunk allowed vlan 10,20,30,40,50,60 and verified that traffic was restored.
+Real-World Troubleshooting: Resolving the Gi0/1 Down/Down Link
+While setting up the topology, GigabitEthernet0/1 refused to come up and stayed stuck in a down, line protocol is down (disabled) state. Here is how I tracked down the root cause and fixed it:
+•	Checking Admin Status: I ran no shutdown on Gi0/1 on both switches first, but the interface stayed disabled.
+•	Catching CLI Syntax Shortcuts: Realized that typing brief shortcuts like in g0/1 was accidentally targeting a system interface template (Lance hardware) rather than the physical Gigabit port.
+•	Fixing the Physical Layer: The interface output flagged a speed/duplex mismatch (100Mb/s Half-duplex). In Packet Tracer, using the wrong cable type locks the interface. I swapped out the connection for a Copper Crossover cable directly between Gi0/1 on both switches and explicitly ran no shutdown on gigabitEthernet 0/1. The link instantly came up!
