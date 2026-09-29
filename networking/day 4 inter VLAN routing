@@ -1,0 +1,15 @@
+Day 4 = Inter VLAN Routing
+
+Today I set up inter vlan routing so all 6 vlans i made earlier can actually talk to each other. My switch SW1 is just a layer 2 2960 switch so it cant do routing on its own, thats why i went with a router on a stick setup using a 2911 router i named R1-CORE.
+
+Instead of using 6 separate physical ports on the router for each vlan (which would be a waste and most routers dont even have that many ports anyway) i used sub interfaces on a single gigabit port. So G0/0.10 G0/0.20 all the way to G0/0.60 each one acting like its own virtual interface with its own ip address that works as the gateway for that vlan. I cabled R1 gig0/0 to SW1 gig0/2 and made that port a trunk so it can carry tagged traffic for all the vlans over just one cable.
+
+On each sub interface i had to set encapsulation dot1Q with the matching vlan number, this is what tells the router hey this traffic belongs to vlan 10 or vlan 20 etc. Without this the router has no clue which vlan a packet came from since its all coming down the same physical wire.
+
+One thing that actually tripped me up while doing this, i tried running dot1Q encapsulation directly on the physical interface gigabitEthernet0/0 without the .10 part and it threw an invalid input error. Turns out encapsulation dot1Q only works inside an actual sub interface not the physical port itself. So you have to type interface gigabitEthernet0/0.10 to create the sub interface first, then the command works fine inside there.
+
+Also learned that even after all sub interfaces are configured they still wont come up if the parent physical interface itself is shut down. So i had to go back into interface gigabitEthernet0/0 (without the .10) and do a no shutdown there too, since sub interfaces just inherit the down state from their parent port.
+
+After setting default gateways on all 6 pcs to match their vlan's sub interface ip, i tested ping between vlans like pinging PC-HR from PC-IT and it worked with 0 percent loss. Ran tracert too and could see the traffic hopping through R1 once before reaching the destination, which confirms routing is actually happening and not just switching.
+
+Basically this whole exercise showed me how a single router interface can handle traffic for multiple broadcast domains just by tagging and untagging vlan traffic on the fly, which is way more scalable than needing a dedicated port per vlan.
