@@ -1,0 +1,130 @@
+Routing and Addressing Troubleshooting (Day 5)
+
+Three more faults from the same lab: a wrong IP and mask, a wrong default gateway, and a router sub-interface that was shut down. Same as before, I broke one thing, fixed it and checked it worked before moving on.
+
+                                             Fault 2 - Wrong IP address and mask on PC-HR
+
+Symptom:
+
+PC-HR could not reach its gateway (192.168.20.1). Pinging it gave request timed out on all 4 packets, 100 percent loss.
+
+What I did to break it:
+
+On PC-HR under Desktop > IP Configuration I set the IP to 192.168.2.95 and the mask to 255.255.255.128.
+
+Commands used to diagnose:
+
+C:\> ipconfig /all
+
+Then I worked out the subnet by hand. With a /25 mask, 192.168.2.95 is in the network 192.168.2.0/25, which covers 192.168.2.1 to 192.168.2.126.
+
+Root cause:
+
+Two mistakes at once. The address was in the wrong network (192.168.2.x instead of 192.168.20.x) and the mask was /25 instead of /24. The gateway 192.168.20.1 is nowhere near 192.168.2.0/25, so the PC thought it was not on the same subnet and never even tried to ARP for it.
+
+Fix:
+
+On PC-HR I changed the settings to
+
+IP address:      192.168.20.10
+Subnet mask:     255.255.255.0
+Default gateway: 192.168.20.1
+
+Verification:
+
+C:\> ping 192.168.20.1
+
+Pinging 192.168.20.1 with 32 bytes of data:
+Reply from 192.168.20.1: bytes=32 time<1ms TTL=255
+Reply from 192.168.20.1: bytes=32 time<1ms TTL=255
+Reply from 192.168.20.1: bytes=32 time<1ms TTL=255
+Reply from 192.168.20.1: bytes=32 time<1ms TTL=255
+
+Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)
+  ---------------------------------------------------------------------------------------------------------------------------------------------
+  
+                                              Fault 3 - Wrong default gateway on PC-FIN
+
+Symptom:
+
+PC-FIN (192.168.30.10) could not reach other subnets. Pinging 192.168.20.10 timed out on all 4 packets. Pinging the gateway it was configured with (192.168.30.99) timed out as well.
+
+What I did to break it:
+
+I changed PC-FIN's default gateway to 192.168.30.99, which is an address nothing in the lab uses.
+
+Commands used to diagnose:
+
+C:\> ipconfig
+C:\> ping 192.168.30.99
+C:\> ping 192.168.30.1
+
+ipconfig showed the gateway as .99. Pinging .99 failed but pinging .1 (the real sub-interface address) worked, which pointed straight at the gateway setting.
+
+Root cause:
+
+PC-FIN was sending everything for other networks to 192.168.30.99. Nothing owns that address so ARP never got a reply and the traffic never left the VLAN. The IP and mask on the PC were fine, which is why it looked like only a local problem.
+
+Fix:
+
+I changed the default gateway on PC-FIN from 192.168.30.99 to 192.168.30.1. The IP (192.168.30.10) and mask (255.255.255.0) stayed the same.
+
+Verification:
+
+C:\> ping 192.168.30.1
+
+Pinging 192.168.30.1 with 32 bytes of data:
+Reply from 192.168.30.1: bytes=32 time<1ms TTL=255
+Reply from 192.168.30.1: bytes=32 time<1ms TTL=255
+Reply from 192.168.30.1: bytes=32 time<1ms TTL=255
+Reply from 192.168.30.1: bytes=32 time<1ms TTL=255
+
+Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)
+------------------------------------------------------------------------------------------------------------------------------------------------
+  
+  
+                                               Fault 5 - Finance sub-interface shut down on the router
+
+Symptom:
+
+PC-FIN (192.168.30.10) could not reach anything, not even its own gateway. Pinging 192.168.30.1 timed out on all 4 packets.
+
+What I did to break it:
+
+On R1-CORE I shut down the Finance sub-interface.
+
+R1-CORE(config)# interface gigabitEthernet0/0.30
+R1-CORE(config-subif)# shutdown
+
+Commands used to diagnose:
+
+Router# show ip interface brief
+
+Gi0/0.30 showed as administratively down and the protocol was down too.
+
+Root cause:
+
+Gi0/0.30 is the gateway for VLAN 30 (192.168.30.0/24). With it shut down nothing was answering at 192.168.30.1, so PC-FIN had no gateway at all. The other sub-interfaces were still up so the other VLANs were fine, which showed me it was only Finance.
+
+Fix:
+
+Router> enable
+Router# configure terminal
+Router(config)# interface gigabitEthernet0/0.30
+Router(config-subif)# no shutdown
+Router(config-subif)# end
+Router# write memory
+
+Verification:
+
+I pinged the gateway from PC-FIN. The first packet timed out while ARP was resolving and then the rest went through.
+
+C:\> ping 192.168.30.1
+
+Pinging 192.168.30.1 with 32 bytes of data:
+Request timed out.
+Reply from 192.168.30.1: bytes=32 time=4ms TTL=255
+Reply from 192.168.30.1: bytes=32 time<1ms TTL=255
+Reply from 192.168.30.1: bytes=32 time<1ms TTL=255
+
+Packets: Sent = 4, Received = 3, Lost = 1 (25% loss)
