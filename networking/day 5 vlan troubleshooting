@@ -1,0 +1,100 @@
+VLAN Troubleshooting (Day 5)
+
+These are the two switch related faults I broke on purpose in my Packet Tracer lab and then fixed. I did one at a time and made sure everything worked again before starting the next one.
+
+Lab setup: SW1-CORE and SW2-ACCESS are connected by a trunk on Gi0/1. R1-CORE does router on a stick off SW1. There are six VLANs: 10 IT, 20 HR, 30 Finance, 40 Servers, 50 Security and 60 Guest.
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Fault 1 - PC-IT in the wrong VLAN
+
+Symptom:
+
+PC-IT (192.168.10.10) could not reach its gateway. When I pinged it from the router it failed 0/5. Pings from the router to the other subnets (192.168.20.10 and 192.168.60.10) still worked, so it was only this one host.
+
+What I did to break it:
+
+    SW1-CORE(config)# interface fa0/2
+    SW1-CORE(config-if)# switchport access vlan 20
+    SW1-CORE(config-if)# exit
+
+Commands used to diagnose:
+
+    SW1-CORE# show vlan brief
+    Router> ping 192.168.10.10
+
+show vlan brief had Fa0/2 listed under VLAN 20 (HR), and VLAN 10 had no active ports at all.
+
+Root cause:
+
+Fa0/2 is the port PC-IT is plugged into and it was assigned to VLAN 20 instead of VLAN 10. So the PC was sitting in the HR broadcast domain with an IT address and the router's VLAN 10 sub-interface could not see it.
+
+Fix:
+
+    SW1-CORE> enable
+    SW1-CORE# configure terminal
+    SW1-CORE(config)# interface fastethernet 0/2
+    SW1-CORE(config-if)# switchport access vlan 10
+    SW1-CORE(config-if)# exit
+    SW1-CORE(config)# exit
+    SW1-CORE# write memory
+
+Verification:
+
+I pinged PC-IT from the router again and it was 100 percent.
+
+    Router> ping 192.168.10.10
+
+    Type escape sequence to abort.
+    Sending 5, 100-byte ICMP Echos to 192.168.10.10, timeout is 2 seconds:
+    !!!!!
+    Success rate is 100 percent (5/5), round-trip min/avg/max = 0/1/4 ms
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+                               Fault 4 - VLANs 50 and 60 removed from the trunk
+
+Symptom:
+
+PC-SEC (VLAN 50, 192.168.50.10) could not ping its gateway at 192.168.50.1. All 4 packets timed out.
+
+What I did to break it:
+
+On SW1-CORE, on the trunk port going to SW2 (Gi0/1), I cut the allowed VLAN list down.
+
+    SW1-CORE(config)# interface gigabitEthernet0/1
+    SW1-CORE(config-if)# switchport trunk allowed vlan 10,20,30,40
+
+Commands used to diagnose:
+
+    SW1-CORE# show interfaces trunk
+
+The allowed list for Gi0/1 only went up to 40. VLANs 50 and 60 were missing.
+
+Root cause:
+
+Since 50 and 60 were not allowed on the trunk, SW1 dropped all frames tagged for those VLANs. PC-SEC is on SW2, so its traffic has to cross that trunk to get to the router, and it never got there. The cable and the trunk were both still up, which makes this one easy to miss because the link looks fine but is missing VLANs.
+
+Fix:
+
+    SW1-CORE> enable
+    SW1-CORE# configure terminal
+    SW1-CORE(config)# interface gigabitEthernet0/1
+    SW1-CORE(config-if)# switchport trunk allowed vlan 10,20,30,40,50,60
+    SW1-CORE(config-if)# end
+    SW1-CORE# write memory
+
+Verification:
+
+I ran show interfaces trunk again to check all six VLANs were listed, then pinged the gateway from PC-SEC.
+
+    C:\> ping 192.168.50.1
+
+    Pinging 192.168.50.1 with 32 bytes of data:
+    Reply from 192.168.50.1: bytes=32 time<1ms TTL=255
+    Reply from 192.168.50.1: bytes=32 time=10ms TTL=255
+    Reply from 192.168.50.1: bytes=32 time<1ms TTL=255
+    Reply from 192.168.50.1: bytes=32 time<1ms TTL=255
+
+    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)
+
