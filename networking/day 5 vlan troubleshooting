@@ -9,7 +9,6 @@ Lab setup: SW1-CORE and SW2-ACCESS are connected by a trunk on Gi0/1. R1-CORE do
  Fault 1 - PC-IT in the wrong VLAN
 
 Symptom:
-
 PC-IT (192.168.10.10) could not reach its gateway. When I pinged it from the router it failed 0/5. Pings from the router to the other subnets (192.168.20.10 and 192.168.60.10) still worked, so it was only this one host.
 
 What I did to break it:
@@ -26,7 +25,6 @@ Commands used to diagnose:
 show vlan brief had Fa0/2 listed under VLAN 20 (HR), and VLAN 10 had no active ports at all.
 
 Root cause:
-
 Fa0/2 is the port PC-IT is plugged into and it was assigned to VLAN 20 instead of VLAN 10. So the PC was sitting in the HR broadcast domain with an IT address and the router's VLAN 10 sub-interface could not see it.
 
 Fix:
@@ -40,7 +38,6 @@ Fix:
     SW1-CORE# write memory
 
 Verification:
-
 I pinged PC-IT from the router again and it was 100 percent.
 
     Router> ping 192.168.10.10
@@ -55,11 +52,9 @@ I pinged PC-IT from the router again and it was 100 percent.
                                Fault 4 - VLANs 50 and 60 removed from the trunk
 
 Symptom:
-
 PC-SEC (VLAN 50, 192.168.50.10) could not ping its gateway at 192.168.50.1. All 4 packets timed out.
 
 What I did to break it:
-
 On SW1-CORE, on the trunk port going to SW2 (Gi0/1), I cut the allowed VLAN list down.
 
     SW1-CORE(config)# interface gigabitEthernet0/1
@@ -72,7 +67,6 @@ Commands used to diagnose:
 The allowed list for Gi0/1 only went up to 40. VLANs 50 and 60 were missing.
 
 Root cause:
-
 Since 50 and 60 were not allowed on the trunk, SW1 dropped all frames tagged for those VLANs. PC-SEC is on SW2, so its traffic has to cross that trunk to get to the router, and it never got there. The cable and the trunk were both still up, which makes this one easy to miss because the link looks fine but is missing VLANs.
 
 Fix:
@@ -85,7 +79,6 @@ Fix:
     SW1-CORE# write memory
 
 Verification:
-
 I ran show interfaces trunk again to check all six VLANs were listed, then pinged the gateway from PC-SEC.
 
     C:\> ping 192.168.50.1
