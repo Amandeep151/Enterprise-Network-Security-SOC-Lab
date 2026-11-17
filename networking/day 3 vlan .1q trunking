@@ -1,9 +1,5 @@
 Day 3: Setting Up Switch-to-Switch Trunking & Fixing Interface Drops
-
-
 Day 2 Context: Created VLANs 10 through 60 and configured user access ports across both switches.
-
----
 
 What I Built
 1. Configured Trunking on Both Switches:
