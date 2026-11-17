@@ -1,3 +1,32 @@
+Enterprise Network Security and SOC Lab
+
+This is my hands-on lab where I built a small enterprise network in Cisco Packet Tracer and then worked on securing it. I wanted to practice VLAN segmentation, firewall rules, and the kind of monitoring a SOC team does. I’m still adding to it as I learn more.
+
+What I built
+
+I split the network into six VLANs so each department stays separate from the others. VLAN 10 is IT, VLAN 20 is HR, VLAN 30 is Finance, VLAN 40 is for the servers, VLAN 50 is Security, and VLAN 60 is Guest.
+
+There are two switches. SW1-CORE is my core switch and SW2-ACCESS is the access switch.
+
+How the switches are set up
+
+On SW1-CORE, I assigned FastEthernet 0/2 to the IT VLAN, 0/3 to HR, 0/4 to Finance, and 0/5 to the Server VLAN. The Security and Guest VLANs exist on this switch but have no ports assigned to them yet. I checked all of this with show vlan brief and show running-config. The switch is running version 15.0 with spanning tree in PVST mode, and the hostname is set to SW1-CORE.
+
+On SW2-ACCESS, I put FastEthernet 0/2 in the Security VLAN and 0/3 in the Guest VLAN. The other VLANs are created here too, so they match the core switch. It runs the same version 15.0 and PVST spanning tree, with the hostname set to SW2-ACCESS.
+
+I took screenshots of the full output from both switches and saved them in the screenshots folder, so you can see exactly what I saw.
+
+What I noticed and want to improve
+
+Password encryption is still off on both switches, so my next step is turning on service password-encryption and setting an enable secret. I also haven’t set up trunking or inter-VLAN routing in these captures yet, and I’ll add that once the router config is finished. After that I want to add port security on the access ports and shut down any ports I’m not using.
+
+What’s in this repo
+
+The Packet tracer folder has my project files. The architecture folder has the network diagrams. The firewall folder has my firewall rules and configs. The networking folder has the switch and router configs. The screenshots folder has proof that things are working.
+
+Why I did this
+
+I’m studying network security and wanted something practical to show, not just theory. Building this helped me understand how VLANs actually separate traffic and why default configs can be risky.
 =========================================
 SW1-CORE - RUNNING CONFIGURATION
 =========================================
@@ -11,30 +40,6 @@ SW1-CORE - RUNNING CONFIGURATION
 1003 token-ring-default               active    
 1004 fddinet-default                  active    
 1005 trnet-default                    active    
-SW1-CORE#
-SW1-CORE#show running-config
-Building configuration...
-
-Current configuration : 1286 bytes
-!
-version 15.0
-no service timestamps log datetime msec
-no service timestamps debug datetime msec
-no service password-encryption
-!
-hostname SW1-CORE
-!
-!
-!
-!
-!
-!
-spanning-tree mode pvst
-spanning-tree extend system-id
-!
-interface FastEthernet0/1
-!
-interface FastEthernet0/2
 
 =========================================
 SW2-ACCESS - RUNNING CONFIGURATION
@@ -49,25 +54,5 @@ SW2-ACCESS - RUNNING CONFIGURATION
 1003 token-ring-default               active    
 1004 fddinet-default                  active    
 1005 trnet-default                    active    
-SW2-ACCESS#show running-config
-Building configuration...
 
-Current configuration : 1186 bytes
-!
-version 15.0
-no service timestamps log datetime msec
-no service timestamps debug datetime msec
-no service password-encryption
-!
-hostname SW2-ACCESS
-!
-!
-!
-!
-!
-!
-spanning-tree mode pvst
-spanning-tree extend system-id
-!
-interface FastEthernet0/1
-!
+
