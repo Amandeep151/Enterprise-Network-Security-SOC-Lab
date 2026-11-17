@@ -1,10 +1,10 @@
 # Day 12: Wireshark Protocol Analysis
 
-Captured on the `Ethernet` adapter of the Win11 lab VM (192.168.40.101), behind the pfSense LAN (192.168.40.1). TCP and HTTP tests used `http://httpforever.com` (104.21.4.210), which stays on plain HTTP (port 80).
+I did all the captures on the Ethernet adapter of my Win11 lab VM (192.168.40.101), which sits behind the pfSense LAN (192.168.40.1). For the TCP and HTTP tests I used http://httpforever.com (104.21.4.210) because it stays on plain HTTP over port 80.
 
 ## ARP Analysis
 
-**Filter:** `arp`. **Generated with** (admin PowerShell): `arp -d *`, then `ping 192.168.40.1`.
+I used the filter arp. To generate traffic I cleared the ARP cache with arp -d * in an admin PowerShell, then ran ping 192.168.40.1.
 
 | Device | IP | MAC |
 |---|---|---|
@@ -30,7 +30,7 @@ Captured on the `Ethernet` adapter of the Win11 lab VM (192.168.40.101), behind 
 
 ## DNS Analysis
 
-**Filter:** `dns`. **Generated with:** `nslookup github.com` (via the pfSense resolver, 192.168.40.1).
+I used the filter dns and generated traffic with nslookup github.com through the pfSense resolver at 192.168.40.1.
 
 | Frame | Time (s) | Direction | Info |
 |---|---|---|---|
@@ -42,20 +42,18 @@ Captured on the `Ethernet` adapter of the Win11 lab VM (192.168.40.101), behind 
 
 ![DNS query and response](../screenshots/day12-dns.png)
 
-**Key points**
-- **UDP**, server port `53`, random high client port. No handshake.
-- The **transaction ID** (`0x0004`) matches response 90 to query 89. `A` = IPv4, `AAAA` = IPv6.
-- Latency was about 0.86 s (cache miss); a cached repeat answers in about 1 ms.
-- `nslookup` first does a **PTR lookup of the DNS server** (frames 82/83), then Windows tries the **search suffix** (`github.com.home.arpa`, NXDOMAIN) before the bare name.
-- DNS is **plaintext**, so anyone on the path can see which domains a host looks up.
+Key points
+-DNS runs over UDP, with server port 53 and a random high port on the client, and there is no handshake. The transaction ID 0x0004 is what matches response 90 to query 89. A is IPv4 and AAAA is IPv6. The lookup took about 0.86 seconds, which was a cache miss, and a cached repeat answers in about 1 millisecond.
 
-**Security relevance:** DNS logs reveal C2 domains; floods of NXDOMAIN suggest DGA malware; long or encoded subdomains suggest tunnelling; answers from an unexpected server suggest spoofing.
+Something that surprised me is that nslookup first does a PTR lookup of the DNS server itself (frames 82 and 83). Then Windows tries the search suffix (github.com.home.arpa), which fails with NXDOMAIN, before it tries the bare name. DNS is also plaintext, so anyone on the path can see which domains a host looks up.
+
+For security, DNS logs can reveal command and control domains, floods of NXDOMAIN can suggest DGA malware, long or encoded subdomains can suggest tunnelling, and answers from an unexpected server can suggest spoofing.
 
 ---
 
 ## DHCP Analysis
 
-**Filter:** `bootp`. **Generated with** (admin PowerShell): `ipconfig /release`, then `ipconfig /renew`.
+I used the filter bootp. To generate traffic I ran ipconfig /release and then ipconfig /renew in an admin PowerShell.
 
 | Frame | Time (s) | Source → Destination | Packet | Transaction ID |
 |---|---|---|---|---|
@@ -67,19 +65,16 @@ Captured on the `Ethernet` adapter of the Win11 lab VM (192.168.40.101), behind 
 
 ![DHCP exchange](../screenshots/day12-dhcp.png)
 
-**Key points**
-- Discover and Request come from `0.0.0.0` to the broadcast address, because the VM has no IP yet. One transaction ID ties the four DORA packets together. UDP ports: client `68`, server `67`.
-- The Offer proposed `192.168.40.101` again (pfSense remembered the MAC).
-- The exchange took about **1.0 s**, mostly Discover to Offer, because pfSense pinged the address first to check it was free (see ICMP).
-- DHCP options include subnet mask, router, DNS server and lease time.
+Key points- 
+The Discover and Request come from 0.0.0.0 to the broadcast address because the VM has no IP at that point. One transaction ID ties all four DORA packets together. The client uses UDP port 68 and the server uses port 67. The Offer proposed 192.168.40.101 again, since pfSense remembered the MAC. The whole exchange took about 1.0 second, mostly between the Discover and the Offer, because pfSense pinged the address first to check it was free (I explain that in the ICMP section). The DHCP options include the subnet mask, router, DNS server and lease time.
 
-**Security relevance:** a **rogue DHCP server** (two Offers for one Discover) can push a malicious gateway or DNS; **starvation** floods Discovers from spoofed MACs; DHCP logs map an **IP to a device at a point in time**.
+For security, a rogue DHCP server (two Offers for one Discover) can push a malicious gateway or DNS, and starvation attacks flood Discovers from spoofed MACs. DHCP logs are also useful because they map an IP to a device at a point in time.
 
 ---
 
 ## ICMP Analysis
 
-**Filter:** `icmp`. **Generated with:** `ping 192.168.40.1` and `ping 8.8.8.8`.
+I used the filter icmp and generated traffic with ping 192.168.40.1 and ping 8.8.8.8.
 
 | Frame | Time (s) | Source → Destination | Info |
 |---|---|---|---|
@@ -91,20 +86,17 @@ Captured on the `Ethernet` adapter of the Win11 lab VM (192.168.40.101), behind 
 ![ICMP echo](../screenshots/day12-icmp.png)
 
 **Key points**
-- **Type** `8` = Echo Request, `0` = Echo Reply. Identifier and sequence number match each reply to its request.
-- **TTL:** Windows sends 128, pfSense (FreeBSD) replies 64, and 8.8.8.8 arrived at 118 (about 10 hops).
-- **RTT:** about 0.5 ms to the gateway, about 159 ms to 8.8.8.8.
-- **Payload:** 32 bytes (`abcdefghijklmnopqrstuvwabcdefghi`), the standard Windows ping pattern.
-- **Frame 259:** pfSense sent an Echo request to the VM's address during DHCP to check it was free. No reply came, which explains the 1 s gap.
-- **Frames 1226 to 1239:** Destination unreachable (Host unreachable) from pfSense, carrying the header of the failed packet.
+Type 8 is an echo request and type 0 is an echo reply. The identifier and sequence number match each reply to its request. For TTL, Windows sends 128, pfSense (which runs FreeBSD) replies with 64, and the reply from 8.8.8.8 arrived at 118, which is about 10 hops away. The round trip was about 0.5 milliseconds to the gateway and about 159 milliseconds to 8.8.8.8. The payload was 32 bytes (abcdefghijklmnopqrstuvwabcdefghi), the standard Windows ping pattern.
 
-**Security relevance:** sweeps of Echo Requests indicate host discovery; large or odd payloads can indicate tunnelling; bursts of Destination unreachable can reveal scanning; TTL helps estimate OS and distance.
+Two other things stood out. In frame 259, pfSense sent an echo request to the VM’s address during DHCP to check it was free. No reply came, and that explains the 1 second gap I saw in the DHCP capture. In frames 1226 to 1239 I saw Destination unreachable (Host unreachable) messages from pfSense, which carry the header of the failed packet.
+
+**Security relevance:** sweeps of echo requests indicate host discovery, large or odd payloads can indicate tunnelling, bursts of destination unreachable can reveal scanning, and TTL helps estimate the operating system and distance.
 
 ---
 
 ## TCP Analysis
 
-**Filters:** `tcp.flags.syn == 1 && ip.addr == 104.21.4.210`. **Generated by** browsing to `http://httpforever.com` (or `Test-NetConnection 104.21.4.210 -Port 80`).
+I used filter `tcp.flags.syn == 1 && ip.addr == 104.21.4.210`. **Generated by** browsing to `http://httpforever.com` (or `Test-NetConnection 104.21.4.210 -Port 80`).
 
 | Step | Frame | Time (s) | Flags | Direction | Seq / Ack (relative) | Raw values |
 |---|---|---|---|---|---|---|
@@ -126,10 +118,7 @@ The browser also opened a second port 80 connection and two port **443** connect
 ![TCP handshake](../screenshots/day12-tcp-handshake.png)
 
 **Key points**
-- **Flags:** SYN (`0x002`), SYN+ACK (`0x012`), ACK, FIN, RST.
-- Each side acknowledges the other's sequence number **plus 1** (server Ack `0xe082e729` = client Seq `0xe082e728` + 1). Wireshark shows **relative** numbers by default; real initial numbers are random.
-- The server offered a smaller **MSS** (1400), and both sides agreed to use **SACK**.
-- SYN to SYN-ACK took about **7.2 ms** (the round-trip time).
+The flags I looked at were SYN (0x002), SYN plus ACK (0x012), ACK, FIN and RST. Each side acknowledges the other’s sequence number plus 1, so the server’s acknowledgement of 0xe082e729 is the client’s sequence 0xe082e728 plus 1. Wireshark shows relative numbers by default, while the real initial numbers are random. The server offered a smaller MSS of 1400, and both sides agreed to use SACK. The SYN to SYN ACK took about 7.2 milliseconds, which is the round trip time.
 
 **Security relevance:** many SYNs with no final ACK suggest a **SYN flood** or half-open scan; an RST reply means the port is closed.
 
@@ -137,7 +126,7 @@ The browser also opened a second port 80 connection and two port **443** connect
 
 ## UDP Analysis
 
-**Filters:** `udp`, `udp.port == 53` (235 of 5909 packets). **Generated with:** `ipconfig /flushdns`, then `nslookup httpforever.com` and `nslookup github.com`.
+Filters used= `udp`, `udp.port == 53` (235 of 5909 packets). **Generated with:** `ipconfig /flushdns`, then `nslookup httpforever.com` and `nslookup github.com`.
 
 | Frame | Time (s) | Info |
 |---|---|---|
@@ -151,10 +140,7 @@ The browser also opened a second port 80 connection and two port **443** connect
 **Frame 5879 (AAAA response):** 154 bytes; pfSense `08:00:27:1b:9b:21` → VM `08:00:27:97:3a:7e`; 192.168.40.1 → 192.168.40.101, protocol `17`; UDP source port **53**, destination port **49956**, length 120 (8-byte header + 112-byte DNS message), checksum `0x56fe`; DNS ID `0x0005`, flags `0x8180` (response, no error).
 
 **Key points**
-- **No handshake:** one query, one response. TCP needed three packets before any data moved.
-- **No built-in reliability:** the first `httpforever.com` query got no response, and `nslookup` moved on about 2 s later ("DNS request timed out"). The application decides whether to retry.
-- The UDP header has four fields (**source port, destination port, length, checksum**), 8 bytes versus at least 20 for TCP.
-- Transaction IDs restart in each `nslookup` run, so a query and response are matched by ID **and** client port.
+What this showed me is that UDP has no handshake, just one query and one response, whereas TCP needed three packets before any data moved. It also has no built in reliability. The first httpforever.com query got no response, and nslookup moved on about 2 seconds later with “DNS request timed out”, so it is the application that decides whether to retry. The UDP header only has four fields (source port, destination port, length and checksum), so it is 8 bytes compared with at least 20 for TCP. Transaction IDs restart in each nslookup run, so a query and its response are matched by the ID and the client port together.
 
 | | TCP | UDP |
 |---|---|---|
@@ -166,7 +152,7 @@ The browser also opened a second port 80 connection and two port **443** connect
 
 ## HTTP and TLS (HTTPS) Analysis
 
-**Filters:** `http`, `tls`. For HTTP I browsed to `http://httpforever.com`, then right-clicked the `GET /` packet → **Follow → TCP Stream**. The TLS example below is background Windows diagnostic traffic to a Microsoft service, but the handshake is the same.
+I used the filters `http`, `tls`. For HTTP I browsed to `http://httpforever.com`, then right-clicked the `GET /` packet → **Follow → TCP Stream**. The TLS example below is background Windows diagnostic traffic to a Microsoft service, but the handshake is the same.
 
 **HTTP:** the request (`GET / HTTP/1.1`, `Host`, `User-Agent`) and response are fully **readable**.
 
@@ -185,13 +171,9 @@ The browser also opened a second port 80 connection and two port **443** connect
 ![TLS handshake](../screenshots/day12-tls.png)
 
 **Key points**
-- The TLS handshake runs on top of the TCP handshake, on port `443`.
-- The **Client Hello** sends the **SNI** in plaintext, plus supported ciphers and ALPN (`h2`, `http/1.1`).
-- In TLS 1.2 the server's **certificate** is also sent in the clear. **Change Cipher Spec** marks the point where everything becomes encrypted.
-- Client Hello to Server Hello took about **89 ms**; the full handshake about **201 ms**.
-- In TLS 1.3 the certificate is encrypted too, but the SNI stays plaintext unless Encrypted Client Hello (ECH) is used.
+The TLS handshake runs on top of the TCP handshake, on port 443. The Client Hello sends the SNI in plaintext, along with the supported ciphers and ALPN (h2 and http/1.1). In TLS 1.2 the server’s certificate is also sent in the clear, and Change Cipher Spec marks the point where everything becomes encrypted. The Client Hello to Server Hello took about 89 milliseconds and the full handshake about 201 milliseconds. In TLS 1.3 the certificate is encrypted too, but the SNI stays in plaintext unless Encrypted Client Hello is used.
 
-**Key takeaway:** HTTP exposes everything (URLs, headers, form data, credentials). TLS encrypts the payload, but the handshake still leaks the **server name (SNI)** and certificate details. An observer can see **who** the VM talks to, but not **what** is said.
+My Key takeaway: HTTP exposes everything (URLs, headers, form data, credentials). TLS encrypts the payload, but the handshake still leaks the **server name (SNI)** and certificate details. An observer can see **who** the VM talks to, but not **what** is said.
 
 **Security relevance:** credentials over HTTP can be read by anyone on the path. For HTTPS, analysts use metadata (SNI, certificate, IP, packet sizes and timing) and watch for expired or self-signed certificates, name/SNI mismatches, very old TLS versions, or a missing SNI.
 
@@ -199,7 +181,7 @@ The browser also opened a second port 80 connection and two port **443** connect
 
 ## SMB Analysis
 
-**Filter:** `smb2` (56 of 1833 packets). Client: Win11 VM (192.168.40.101, port `57115`). Server: WinSrv-Lab (192.168.40.10, port `445`). WinSrv-Lab was first on a bridged network only, so I added an internal adapter with static IP `192.168.40.10` on the VM's network.
+Filter used= `smb2` (56 of 1833 packets). Client: Win11 VM (192.168.40.101, port `57115`). Server: WinSrv-Lab (192.168.40.10, port `445`). WinSrv-Lab was first on a bridged network only, so I added an internal adapter with static IP `192.168.40.10` on the VM's network.
 
 **Generated with**
 - Server: `mkdir C:\TestShare`, a `test.txt` inside it, and `New-SmbShare -Name TestShare -Path C:\TestShare -FullAccess Everyone`
@@ -221,10 +203,7 @@ Typical flow: Negotiate Protocol (agree on dialect) → Session Setup (NTLM / Ke
 Share path: `\\192.168.40.10\TestShare`. Dialect: `<fill in>` (expand **Negotiate Protocol Response** → SMB2 header → **Dialect**).
 
 **Key points**
-- Every file action is visible, so an analyst can see who touched which file and when.
-- File names are **readable in the clear**, so this traffic was **not encrypted**. SMB 3.x supports encryption, but it is not always enabled.
-- The 22-byte write matches the file I created (`Out-File` writes UTF-16). The write was answered in about 0.8 ms.
-- `IPC$` is the hidden inter-process communication share Windows connects to alongside the real one.
+Every file action is visible, so an analyst can see who touched which file and when. The file names were readable in the clear, which means this traffic was not encrypted. SMB 3.x supports encryption, but it is not always switched on. The 22 byte write matches the file I created, since Out-File writes UTF-16, and the server answered the write in about 0.8 milliseconds. IPC$ is the hidden inter process communication share that Windows connects to alongside the real one.
 
 **Security relevance:** SMB is used for **lateral movement** and ransomware spread. Watch for many Session Setup failures, access to admin shares (`C$`, `ADMIN$`), unusual workstation-to-workstation SMB, and one host rapidly writing many files.
 
@@ -232,6 +211,8 @@ Share path: `\\192.168.40.10\TestShare`. Dialect: `<fill in>` (expand **Negotiat
 
 ## Host Filter and Evidence
 
-- **Host filter:** `ip.addr == 192.168.40.101` shows every packet to or from the VM, the main filter for investigating one host.
-- **Evidence file:** `wireshark/day12-mixed-capture.pcapng` (includes `httpforever.com` HTTP traffic), reviewed for credentials or personal browsing before committing.
-- **Screenshots:** `day12-arp.png`, `day12-dns.png`, `day12-dhcp.png`, `day12-icmp.png`, `day12-tcp-handshake.png`, `day12-udp-dns.png`, `day12-tcp-stream.png`, `day12-tls.png`, `day12-smb.png`
+The filter I would use to investigate one host is ip.addr == 192.168.40.101, which shows every packet to or from the VM.
+
+My evidence file is wireshark/day12-mixed-capture.pcapng, which includes the httpforever.com HTTP traffic. I reviewed it for credentials and personal browsing before committing it.
+
+The screenshots are day12-arp.png, day12-dns.png, day12-dhcp.png, day12-icmp.png, day12-tcp-handshake.png, day12-udp-dns.png, day12-tcp-stream.png, day12-tls.png and day12-smb.png, all in the screenshots folder.
