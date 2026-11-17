@@ -27,12 +27,13 @@ Finally, under Services and DHCP Server, I turned on DHCP for both new networks.
 If the Wazuh agent uses another manager IP (e.g. 192.168.0.60), add it to SERVER_HOSTS too.
 
 Part C — Rules I ticked the Log option on every rule so I could see them in the firewall logs later, and then clicked Apply Changes.
-|  | Tab | Action | Source | Destination | Description |
+For Rule 1, I changed the Win11 VM’s Adapter 1 to IT-NET and ran ipconfig /renew. It picked up an address in 192.168.10.x as expected. Then I ran Test-NetConnection 192.168.40.102 -Port 445 and it returned True, so IT can reach the server. As a bonus check I ran Test-NetConnection 8.8.8.8 -Port 443, which failed. That is the implicit deny at work, because I never created a rule letting IT out to the internet.
 
-| 1 | IT | Pass | IT_HOSTS | SERVER_HOSTS | Allow IT to reach Servers |
-| 2 | GUEST | Block | GUEST_HOSTS | INTERNAL_NETS | Deny Guest to internal networks |
-| 2b (opt) | GUEST | Pass | GUEST_HOSTS | any | Guest internet (keep **below** the Block) |
-| 3 | LAN | Pass | WAZUH_MGR | INTERNAL_NETS | Allow Security zone to required systems |
+For Rule 2, I changed Adapter 1 to GUEST-NET and renewed, and the VM got an address in 192.168.60.x. I ran the same port 445 test and this time it returned False, so Guest is blocked from the server.
+
+For Rule 3, I pinged from the Ubuntu VM with ping -c 3 192.168.10.1. I then checked that the hit counter on Rule 3 went up and that a green pass entry showed in Status, System Logs, Firewall.
+
+For the log check, I found the red block entry for the Guest test. It showed the interface as GUEST, the source as 192.168.60.x and the destination as 192.168.40.102 on port 445.
 
 Drag Rule 3 above "Default allow LAN to any" (first match wins).
 
