@@ -46,7 +46,7 @@ Deliberately generate failed logons on the lab endpoint, then investigate the sa
 data.win.system.eventID: 4625
 agent.name: Win11-VM
 ```
-Trigger an investigation when **5 or more** 4625 events occur for the same `targetUserName` within a short window, especially if followed by a 4624 for that account (possible successful password guessing).
+I would trigger an investigation when 5 or more 4625 events happen for the same targetUserName within a short window, especially if a 4624 for that account follows. That pattern could mean someone successfully guessed a password.
 
 ### Lessons learned
 - 4625 events identify the **target account** (`targetUserName`), while the Subject fields show the process or system context handling the logon. Don't confuse the two.
