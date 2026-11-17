@@ -40,6 +40,25 @@ SW1-CORE - RUNNING CONFIGURATION
 1003 token-ring-default               active    
 1004 fddinet-default                  active    
 1005 trnet-default                    active    
+SW1-CORE#show running-config
+Building configuration...
+
+Current configuration : 1286 bytes
+
+version 15.0
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+no service password-encryption
+!
+hostname SW1-CORE
+!
+spanning-tree mode pvst
+spanning-tree extend system-id
+!
+interface FastEthernet0/1
+!
+interface FastEthernet0/2
+```
 
 =========================================
 SW2-ACCESS - RUNNING CONFIGURATION
@@ -55,4 +74,21 @@ SW2-ACCESS - RUNNING CONFIGURATION
 1004 fddinet-default                  active    
 1005 trnet-default                    active    
 
+SW2-ACCESS#show running-config
+Building configuration...
 
+Current configuration : 1186 bytes
+!
+version 15.0
+no service timestamps log datetime msec
+no service timestamps debug datetime msec
+no service password-encryption
+!
+hostname SW2-ACCESS
+!
+spanning-tree mode pvst
+spanning-tree extend system-id
+!
+interface FastEthernet0/1
+!
+```
