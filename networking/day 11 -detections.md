@@ -55,7 +55,8 @@ I would trigger an investigation when 5 or more 4625 events happen for the same 
 - Time zones differ between Event Viewer, the Wazuh dashboard display, and the raw log timestamp (UTC). Always compare events using the same timezone.
 
 ### Setup note: agent deployment
-The agent was installed on the VM from an admin PowerShell session, then started with `NET START WazuhSvc`:
+I installed the agent from an admin PowerShell session and then started it with `NET START WazuhSvc`:
+ These are the commands I ran:
 ```powershell
 Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.10-1.msi -OutFile $env:tmp\wazuh-agent.msi
 Start-Process msiexec.exe -Wait -ArgumentList "/i $env:tmp\wazuh-agent.msi /q WAZUH_MANAGER=192.168.0.60 WAZUH_AGENT_NAME=Win11-VM"
